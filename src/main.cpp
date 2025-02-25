@@ -1,3 +1,4 @@
+
 #include <Keypad.h>
 
 #include <LiquidCrystal.h>
@@ -42,6 +43,14 @@ const int boutonhaut=47, boutondroit=51, boutonbas=53, boutongauche=49;
 ///////////////////////////////////////////////////////////////////////////////////
 // 5 LED de couleurs
 const int LED2=52, LED3=50, LED4=48, LED5=46, LED6=44;
+//////////////////////////////////////////////////////////////////////////////////
+const int BARGRAPHE_SIZE = 10;
+const int POT_INPUT = A0;
+
+int Bar_Pins[] = {2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+
+int pot_Value = 0;
+//////////////////////////////////////////////////////////////////////////////////
 
 
 
@@ -65,6 +74,13 @@ void setup(){
    ////////////////////////////////////////////////////////////////////////////////
    pinMode(VRX_PIN,INPUT);
    pinMode(VRY_PIN,INPUT);
+
+  /////////////////////////////////////////////////////////////////////////////////
+  for(int barSegment = 0; barSegment < BARGRAPHE_SIZE; barSegment++)
+  {
+    pinMode(Bar_Pins[barSegment],OUTPUT);
+    digitalWrite(Bar_Pins[barSegment],LOW);
+  }
 
   Serial.begin(9600);
 }
@@ -129,27 +145,55 @@ void loop(){
 
   if (xValue>max_joystick){
     lcd.write("Gauche");
+    delay(500);
     lcd.clear();
     lcd.setCursor(1,0);
   }
 
   if (yValue>max_joystick){
     lcd.write("Haut");
+    delay(500);
     lcd.clear();
     lcd.setCursor(1,0);
   }
 
   if (xValue<min_joystick){
     lcd.write("Droite");
+    delay(500);
     lcd.clear();
     lcd.setCursor(1,0);
   }
 
   if (yValue<min_joystick){
     lcd.write("Bas");
+    delay(500);
     lcd.clear();
     lcd.setCursor(1,0);
   }
+
+  /*pot_Value = analogRead(POT_INPUT);
+  int barLevel = map(pot_Value, 0, 1023, 0, BARGRAPHE_SIZE);
+  
+  for(int barSegment = 0; barSegment < BARGRAPHE_SIZE; barSegment++)
+  {
+  if(barSegment < barLevel)
+  {
+  digitalWrite(Bar_Pins[barSegment],HIGH);
+  }
+          else if (barSegment > barLevel)
+                
+          {
+            digitalWrite(Bar_Pins[barSegment],LOW);
+          }
+          if(pot_Value==0)
+          {
+            digitalWrite(2, LOW);
+          }
+  } 
+      
+      Serial.println(analogRead(A0));*/
+
+
 
   // print data to Serial Monitor on Arduino IDE
  /* Serial.print("x = ");
