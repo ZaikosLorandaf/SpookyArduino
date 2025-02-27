@@ -11,7 +11,7 @@
 int x, y, z;
 /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 //Joystick
-const int VRX_PIN = A2; // Arduino pin connected to VRX pin
+const int VRX_PIN = A4; // Arduino pin connected to VRX pin
 const int VRY_PIN = A3;// Arduino pin connected to VRY pin
 
 int xValue = 0; // To store value of the X axis
@@ -175,46 +175,37 @@ void loop(){
     lcd.setCursor(1,0);
   }
 
-  /*x = analogRead(A8);       // read analog input pin A4
-    y = analogRead(A9);       // read analog input pin A5
-    z = analogRead(A10);       // read analog input pin A6
-    Serial.print(x, DEC);    // print the acceleration in the X axis
-    Serial.print(" ");       // prints a space between the numbers
-    Serial.print(y, DEC);    // print the acceleration in the Y axis
-    Serial.print(" ");       // prints a space between the numbers
-    Serial.println(z, DEC);  // print the acceleration in the Z axis
-    delay(250);*/
+  x = analogRead(A8);       // read analog input pin A4
+  y = analogRead(A9);       // read analog input pin A5
+  z = analogRead(A10);       // read analog input pin A6
+  Serial.print(x, DEC);    // print the acceleration in the X axis
+  Serial.print(" ");       // prints a space between the numbers
+  Serial.print(y, DEC);    // print the acceleration in the Y axis
+  Serial.print(" ");       // prints a space between the numbers
+  Serial.println(z, DEC);  // print the acceleration in the Z axis
+  delay(250);
 
   pot_Value = analogRead(POT_INPUT);
   int barLevel = map(pot_Value, 0, 1023, 0, BARGRAPHE_SIZE);
 
-  for(int barSegment = 0; barSegment < BARGRAPHE_SIZE; barSegment++)
-  {
+  for(int barSegment = 0; barSegment < BARGRAPHE_SIZE; barSegment++) {
     if(barSegment < barLevel)
-    {
       digitalWrite(Bar_Pins[barSegment],HIGH);
-    }
     else if (barSegment > barLevel)
-
-    {
       digitalWrite(Bar_Pins[barSegment],LOW);
-    }
     if(pot_Value==0)
-    {
       digitalWrite(2, LOW);
-    }
   }
-
-  Serial.println(analogRead(A0));
-
+//Serial.println(analogRead(A0));
 
 
-  // print data to Serial Monitor on Arduino IDE
-  /* Serial.print("x = ");
-     Serial.print(xValue);
-     Serial.print(", y = ");
-     Serial.println(yValue);
-     delay(1000);*/
-  //Serial.println("TEST");
+
+// print data to Serial Monitor on Arduino IDE
+/* Serial.print("x = ");
+   Serial.print(xValue);
+   Serial.print(", y = ");
+   Serial.println(yValue);
+   delay(1000);*/
+//Serial.println("TEST");
 }
 
