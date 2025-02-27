@@ -18,9 +18,9 @@ const int VRY_PIN = A3; // Arduino pin connected to VRY pin
 
 int xValue = 0; // To store value of the X axis
 int yValue = 0; // To store value of the Y axis
-/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-//LCD
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/ 
 const int rs = 12, en = 11, d4 = 2, d5 = 3, d6 = 4, d7 = 5;
+
 
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
@@ -185,7 +185,7 @@ void loop(){
   Serial.print(y, DEC);    // print the acceleration in the Y axis
   Serial.print(" ");       // prints a space between the numbers
   Serial.println(z, DEC);  // print the acceleration in the Z axis
-  delay(250);
+  //delay(250);
 
   pot_Value = analogRead(POT_INPUT);
   int barLevel = map(pot_Value, 0, 1023, 0, BARGRAPHE_SIZE);
@@ -196,7 +196,7 @@ void loop(){
     else if (barSegment > barLevel)
       digitalWrite(Bar_Pins[barSegment],LOW);
     if(pot_Value==0)
-      digitalWrite(2, LOW);
+      digitalWrite(52, LOW);
   }
 //Serial.println(analogRead(A0));
 
