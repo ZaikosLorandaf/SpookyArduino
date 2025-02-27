@@ -183,7 +183,7 @@ void loop(){
   Serial.print(y, DEC);    // print the acceleration in the Y axis
   Serial.print(" ");       // prints a space between the numbers
   Serial.println(z, DEC);  // print the acceleration in the Z axis
-  delay(250);
+  //delay(250);
 
   pot_Value = analogRead(POT_INPUT);
   int barLevel = map(pot_Value, 0, 1023, 0, BARGRAPHE_SIZE);
@@ -194,7 +194,7 @@ void loop(){
     else if (barSegment > barLevel)
       digitalWrite(Bar_Pins[barSegment],LOW);
     if(pot_Value==0)
-      digitalWrite(2, LOW);
+      digitalWrite(52, LOW);
   }
 //Serial.println(analogRead(A0));
 
