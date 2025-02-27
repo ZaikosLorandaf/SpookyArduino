@@ -18,7 +18,7 @@ int xValue = 0; // To store value of the X axis
 int yValue = 0; // To store value of the Y axis
 //////////////////////////////////////////////////////////////////////////
 //LCD
-const int rs = 12, en = 11, d4 = 5, d5 = 4, d6 = 3, d7 = 2;
+const int rs = 12, en = 11, d4 = 2, d5 = 3, d6 = 4, d7 = 5;
 
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 ////////////////////////////////////////////////////////////////////////
@@ -46,12 +46,12 @@ Keypad customKeypad = Keypad(makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS)
 const int boutonhaut=31, boutondroit=33, boutonbas=32, boutongauche=30;
 ///////////////////////////////////////////////////////////////////////////////////
 // 5 LED de couleurs
-const int LED2=52, LED3=50, LED4=48, LED5=46, LED6=44;
+const int LED2=42, LED3=43, LED4=40, LED5=38, LED6=36;
 //////////////////////////////////////////////////////////////////////////////////
 const int BARGRAPHE_SIZE = 10;
 const int POT_INPUT = A0;
 
-int Bar_Pins[] = {2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+int Bar_Pins[] = {52, 50, 48, 46, 44, 53, 51, 49, 47, 45};
 
 int pot_Value = 0;
 //////////////////////////////////////////////////////////////////////////////////
@@ -175,7 +175,7 @@ void loop(){
     lcd.setCursor(1,0);
   }
 
-  x = analogRead(A8);       // read analog input pin A4
+  /*x = analogRead(A8);       // read analog input pin A4
   y = analogRead(A9);       // read analog input pin A5
   z = analogRead(A10);       // read analog input pin A6
   Serial.print(x, DEC);    // print the acceleration in the X axis
@@ -183,9 +183,9 @@ void loop(){
   Serial.print(y, DEC);    // print the acceleration in the Y axis
   Serial.print(" ");       // prints a space between the numbers
   Serial.println(z, DEC);  // print the acceleration in the Z axis
-  delay(100);
+  delay(250);*/
 
-  /*pot_Value = analogRead(POT_INPUT);
+  pot_Value = analogRead(POT_INPUT);
   int barLevel = map(pot_Value, 0, 1023, 0, BARGRAPHE_SIZE);
   
   for(int barSegment = 0; barSegment < BARGRAPHE_SIZE; barSegment++)
@@ -205,7 +205,7 @@ void loop(){
           }
   } 
       
-      Serial.println(analogRead(A0));*/
+      Serial.println(analogRead(A0));
 
 
 
