@@ -16,9 +16,9 @@ const int VRY_PIN = A3;// Arduino pin connected to VRY pin
 
 int xValue = 0; // To store value of the X axis
 int yValue = 0; // To store value of the Y axis
-/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-//LCD
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/ 
 const int rs = 12, en = 11, d4 = 2, d5 = 3, d6 = 4, d7 = 5;
+
 
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
