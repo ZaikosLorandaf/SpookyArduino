@@ -5,6 +5,10 @@
 
 #define max_joystick 800
 #define min_joystick 200
+
+////////////////////////////////////////////////////////////////////////
+//Accéléromètre
+int x, y, z;
 ////////////////////////////////////////////////////////////////////////
 //Joystick
 const int VRX_PIN = A2; // Arduino pin connected to VRX pin
@@ -39,7 +43,7 @@ byte colPins[COLS] = {29, 28, 27, 26};
 Keypad customKeypad = Keypad(makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS); 
 ///////////////////////////////////////////////////////////////////////////////////
 //Boutons
-const int boutonhaut=47, boutondroit=51, boutonbas=53, boutongauche=49;
+const int boutonhaut=31, boutondroit=33, boutonbas=32, boutongauche=30;
 ///////////////////////////////////////////////////////////////////////////////////
 // 5 LED de couleurs
 const int LED2=52, LED3=50, LED4=48, LED5=46, LED6=44;
@@ -170,6 +174,16 @@ void loop(){
     lcd.clear();
     lcd.setCursor(1,0);
   }
+
+  x = analogRead(A8);       // read analog input pin A4
+  y = analogRead(A9);       // read analog input pin A5
+  z = analogRead(A10);       // read analog input pin A6
+  Serial.print(x, DEC);    // print the acceleration in the X axis
+  Serial.print(" ");       // prints a space between the numbers
+  Serial.print(y, DEC);    // print the acceleration in the Y axis
+  Serial.print(" ");       // prints a space between the numbers
+  Serial.println(z, DEC);  // print the acceleration in the Z axis
+  delay(100);
 
   /*pot_Value = analogRead(POT_INPUT);
   int barLevel = map(pot_Value, 0, 1023, 0, BARGRAPHE_SIZE);
