@@ -1,10 +1,12 @@
-
+#include <ArduinoJson.hpp>
+#include <ArduinoJson.h>
 #include <Keypad.h>
-
 #include <LiquidCrystal.h>
 
 #define max_joystick 800
 #define min_joystick 200
+
+JsonDocument controller;
 
 /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 //Accéléromètre
@@ -12,7 +14,7 @@ int x, y, z;
 /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 //Joystick
 const int VRX_PIN = A4; // Arduino pin connected to VRX pin
-const int VRY_PIN = A3;// Arduino pin connected to VRY pin
+const int VRY_PIN = A3; // Arduino pin connected to VRY pin
 
 int xValue = 0; // To store value of the X axis
 int yValue = 0; // To store value of the Y axis
