@@ -2,7 +2,9 @@
 #include <ArduinoJson.h>
 #include <Keypad.h>
 #include <LiquidCrystal.h>
+#include <time.h>
 
+/*~~ Json Init ~~~*/
 JsonDocument controller;
 
 /*~~~ Joystick ~~~*/
@@ -13,16 +15,16 @@ JsonDocument controller;
 #define VRY A3
 
 #define J_CENTER  0
-#define J_UP      1
-#define J_DOWN    2
-#define J_RIGHT   3
-#define J_LEFT    4
+#define UP      1
+#define DOWN    2
+#define RIGHT   3
+#define LEFT    4
 
 /*~~~~ Buttons ~~~*/
-#define B_UP    31
-#define B_DOWN  32
-#define B_RIGHT 33
-#define B_LEFT  30
+#define B_UP_PIN    31
+#define B_DOWN_PIN  32
+#define B_RIGHT_PIN 33
+#define B_LEFT_PIN  30
 
 /*~~~~~ LEDs ~~~~~*/
 #define LED1 42
@@ -42,7 +44,17 @@ JsonDocument controller;
 int barPin[] = {52, 50, 48, 46, 44, 53, 51, 49, 47, 45};
 
 /* Accelerometer */
-int x, y, z;
+#define ACCEL_X A8
+#define ACCEL_Y A9
+#define ACCEL_Z A10
+bool accelNeeded = false;
+struct Accel{
+  int x;
+  int y;
+  int z;
+};
+Accel accel{};
+
 
 /*~~~~~ LCD ~~~~*/
 const int rs = 12;
@@ -82,13 +94,13 @@ int getPosition() {
   yVal = analogRead(VRY);
 
   if (yVal > JOY_MAX_TRESH)
-    return J_UP;
+    return UP;
   else if (yVal < JOY_MIN_TRESH)
-    return J_DOWN;
+    return DOWN;
   else if (xVal > JOY_MAX_TRESH)
-    return J_RIGHT;
+    return RIGHT;
   else if (xVal < JOY_MIN_TRESH)
-    return J_LEFT;
+    return LEFT;
   else
     return J_CENTER;
 }
@@ -124,15 +136,80 @@ void display(T stream){
 }
 
 
+/* Accelerometer */
+struct Accel getAccel() {
+  accel.x = analogRead(A8);
+  accel.y = analogRead(A9);
+  accel.z = analogRead(A10);
+  return accel;
+}
+
+/*~~~~ Buttons ~~~*/
+int getButton() {
+  if (digitalRead(B_UP_PIN) == LOW)
+    return UP;
+  if (digitalRead(B_DOWN_PIN) == LOW)
+    return DOWN;
+  if (digitalRead(B_LEFT_PIN) == LOW)
+    return LEFT;
+  if (digitalRead(B_RIGHT_PIN) == LOW)
+    return RIGHT;
+
+  return 0;
+}
+
+/*~~~~~ LEDs ~~~~~*/
+void turnOnLED(int led) {
+  switch (led) {
+    case 1:
+      digitalWrite(LED1, HIGH);
+      break;
+    case 2:
+      digitalWrite(LED2, HIGH);
+      break;
+    case 3:
+      digitalWrite(LED3, HIGH);
+      break;
+    case 4:
+      digitalWrite(LED4, HIGH);
+      break;
+  }
+}
+
+void turnOffLED(int led) {
+  switch (led) {
+    case 1:
+      digitalWrite(LED1, LOW);
+      break;
+    case 2:
+      digitalWrite(LED2, LOW);
+      break;
+    case 3:
+      digitalWrite(LED3, LOW);
+      break;
+    case 4:
+      digitalWrite(LED4, LOW);
+      break;
+  }
+}
+
+void turnOffAllLED() {
+  digitalWrite(LED1, LOW);
+  digitalWrite(LED2, LOW);
+  digitalWrite(LED3, LOW);
+  digitalWrite(LED4, LOW);
+}
+
+
 void setup(){
 
   lcd.begin(16, 2); //Sets the LCD's amount of columns and rows.
 
   /*~~~~ Buttons ~~~*/
-  pinMode(B_UP,INPUT_PULLUP);
-  pinMode(B_DOWN,INPUT_PULLUP);
-  pinMode(B_RIGHT,INPUT_PULLUP);
-  pinMode(B_LEFT,INPUT_PULLUP);
+  pinMode(B_UP_PIN,INPUT_PULLUP);
+  pinMode(B_DOWN_PIN,INPUT_PULLUP);
+  pinMode(B_RIGHT_PIN,INPUT_PULLUP);
+  pinMode(B_LEFT_PIN,INPUT_PULLUP);
 
   /*~~~~~ LEDs ~~~~~*/
   pinMode(LED1,OUTPUT);
@@ -188,53 +265,48 @@ void loop(){
 
 
   /*~~~~~~~~~~~~~~~~ Bouttons ~~~~~~~~~~~~~~~~*/
-  if (digitalRead(B_UP) == LOW) { // Bouton pressé (car pull-up utilisé)
-    Serial.println("Bouton du haut appuyé");
-    digitalWrite(LED4,HIGH);
-    delay(1000);
-    digitalWrite(LED4,LOW);
+  switch (getButton()) {
+    case UP:
+      display("Button Up");
+      controller["bUp"] = 1;
+      turnOnLED(1);
+      break;
+    case DOWN:
+      display("Button Down");
+      controller["bDown"] = 1;
+      turnOnLED(2);
+      break;
+    case RIGHT:
+      display("Button Right");
+      controller["bRight"] = 1;
+      turnOnLED(3);
+      break;
+    case LEFT:
+      display("Button Left");
+      controller["bLeft"] = 1;
+      turnOnLED(4);
+      break;
   }
 
-  if (digitalRead(B_RIGHT) == LOW) { // Bouton pressé (car pull-up utilisé)
-    Serial.println("Bouton de droite appuyé");
-    digitalWrite(LED2,HIGH);
-    delay(1000);
-    digitalWrite(LED2,LOW);
-  }
-
-
-  if (digitalRead(B_DOWN) == LOW) { // Bouton pressé (car pull-up utilisé)
-    Serial.println("Bouton du bas appuyé");
-    digitalWrite(LED3,HIGH);
-    delay(1000);
-    digitalWrite(LED3,LOW);
-  }
-
-  if (digitalRead(B_LEFT) == LOW) { // Bouton pressé (car pull-up utilisé)
-    Serial.println("Bouton de gauche appuyé");
-    digitalWrite(LED5,HIGH);
-    delay(1000);
-    digitalWrite(LED5,LOW);
-  }
 
   /*~~~~~~~~~~~~~~~~ Joystick ~~~~~~~~~~~~~~~~~~~~*/
   switch (getPosition()) {
-    case J_UP:
+    case UP:
       display("Up");
       controller["xJoy"] = 0;
       controller["yJoy"] = 1;
       break;
-    case J_DOWN:
+    case DOWN:
       display("Down");
       controller["xJoy"] = 0;
       controller["yJoy"] = -1;
       break;
-    case J_RIGHT:
+    case RIGHT:
       display("Right");
       controller["xJoy"] = -1;
       controller["yJoy"] = 0;
       break;
-    case J_LEFT:
+    case LEFT:
       display("Left");
       controller["xJoy"] = 1;
       controller["yJoy"] = 0;
@@ -250,9 +322,12 @@ void loop(){
 
 
   /*~~~~~~~~~~~~~~~~ Accelerometer ~~~~~~~~~~~~~~~*/
-  x = analogRead(A8);       // read analog input pin A4
-  y = analogRead(A9);       // read analog input pin A5
-  z = analogRead(A10);       // read analog input pin A6
+  if (accelNeeded) {
+    accel = getAccel();
+    controller["accelX"] = accel.x;
+    controller["accelY"] = accel.y;
+    controller["accelZ"] = accel.z;
+  }
 
   /*~~~~~~~~~~~~~~~~~~ BarGraph ~~~~~~~~~~~~~~~~*/
   writeBarGraph(getPot());
