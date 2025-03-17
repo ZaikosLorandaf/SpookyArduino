@@ -2,7 +2,6 @@
 #include <ArduinoJson.h>
 #include <Keypad.h>
 #include <LiquidCrystal.h>
-#include <time.h>
 
 /*~~ Json Init ~~~*/
 JsonDocument controller;
@@ -57,6 +56,8 @@ Accel accel{};
 
 
 /*~~~~~ LCD ~~~~*/
+#define LCD_COL 16
+#define LCD_ROW 2
 const int rs = 12;
 const int en = 11;
 const int d4 = 2;
@@ -66,6 +67,21 @@ const int d7 = 5;
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
 float lcdTime;
+
+
+/*~~~~ Timers ~~~*/
+int displayTime = 500;
+int ledTime = 500;
+struct Timers {
+  unsigned long time;
+  int status;
+};
+Timers timerLCD;
+Timers timerLED1;
+Timers timerLED2;
+Timers timerLED3;
+Timers timerLED4;
+
 
 /*~~~~ Keypad ~~~*/
 int cursorplace = 0;
@@ -131,8 +147,22 @@ float getPot() {
 
 template <typename T>
 void display(T stream){
+
+  if (timerLCD.status)
+    for (int i = 0; i < LCD_COL; i++)
+      lcd.scrollDisplayRight();
+
+  timerLCD.time = millis();
+  timerLCD.status = 1;
   lcd.write(stream);
   lcd.setCursor(1,0);
+}
+
+void clearDisplay() {
+  lcd.clear();
+  lcd.setCursor(1,0);
+  timerLCD.time = 0;
+  timerLCD.status = 0;
 }
 
 
@@ -201,9 +231,30 @@ void turnOffAllLED() {
 }
 
 
+/*~~~~ Timers ~~~*/
+void checktimer() {
+  if (millis() - timerLCD.time > displayTime) {
+    timerLCD.status = 0;
+    clearDisplay();
+  }
+
+  if (millis() - timerLED1.time > ledTime)
+    turnOffLED(1);
+  if (millis() - timerLED2.time > ledTime)
+    turnOffLED(2);
+  if (millis() - timerLED3.time > ledTime)
+    turnOffLED(3);
+  if (millis() - timerLED4.time > ledTime)
+    turnOffLED(4);
+}
+
+
+
+
+
 void setup(){
 
-  lcd.begin(16, 2); //Sets the LCD's amount of columns and rows.
+  lcd.begin(LCD_COL,LCD_ROW); //Sets the LCD's amount of columns and rows.
 
   /*~~~~ Buttons ~~~*/
   pinMode(B_UP_PIN,INPUT_PULLUP);
@@ -243,7 +294,6 @@ void setup(){
 void loop(){
   // set the cursor to column 0, line 1
   // (note: line 1 is the second row, since counting begins with 0):
-  lcd.setCursor(1, 0);
   char customKey = customKeypad.getKey();
 
   if (customKey){
@@ -268,21 +318,25 @@ void loop(){
   switch (getButton()) {
     case UP:
       display("Button Up");
+      timerLCD.time = millis();
       controller["bUp"] = 1;
       turnOnLED(1);
       break;
     case DOWN:
       display("Button Down");
+      timerLCD.time = millis();
       controller["bDown"] = 1;
       turnOnLED(2);
       break;
     case RIGHT:
       display("Button Right");
+      timerLCD.time = millis();
       controller["bRight"] = 1;
       turnOnLED(3);
       break;
     case LEFT:
       display("Button Left");
+      timerLCD.time = millis();
       controller["bLeft"] = 1;
       turnOnLED(4);
       break;
@@ -293,32 +347,38 @@ void loop(){
   switch (getPosition()) {
     case UP:
       display("Up");
+      timerLCD.time = millis();
       controller["xJoy"] = 0;
       controller["yJoy"] = 1;
       break;
     case DOWN:
       display("Down");
+      timerLCD.time = millis();
       controller["xJoy"] = 0;
       controller["yJoy"] = -1;
       break;
     case RIGHT:
       display("Right");
+      timerLCD.time = millis();
       controller["xJoy"] = -1;
       controller["yJoy"] = 0;
       break;
     case LEFT:
       display("Left");
+      timerLCD.time = millis();
       controller["xJoy"] = 1;
       controller["yJoy"] = 0;
       break;
     default:
       lcd.write("Centre");
+      timerLCD.time = millis();
       delay(500);
       lcd.clear();
       lcd.setCursor(1,0);
       controller["xJoy"] = 0;
       controller["yJoy"] = 0;
   }
+
 
 
   /*~~~~~~~~~~~~~~~~ Accelerometer ~~~~~~~~~~~~~~~*/
@@ -331,6 +391,10 @@ void loop(){
 
   /*~~~~~~~~~~~~~~~~~~ BarGraph ~~~~~~~~~~~~~~~~*/
   writeBarGraph(getPot());
+
+
+  /*~~~~~~~~~~~~~~~~~~ Timers ~~~~~~~~~~~~~~~~~~*/
+  checktimer();
 
   if (!controller.isNull()) {
     serializeJson(controller, Serial);
