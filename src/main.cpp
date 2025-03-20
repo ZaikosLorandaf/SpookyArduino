@@ -4,6 +4,7 @@
 #include <ezButton.h>
 #include "ArduinoJson/Json/JsonSerializer.hpp"
 #include "HardwareSerial.h"
+#include "Key.h"
 #include "display.hpp"
 
 /*~~ Json Init ~~~*/
@@ -79,14 +80,13 @@ int displayTime = 500;
 int ledTime = 500;
 struct Timers {
   unsigned long time;
-  unsigned long time2;
   int status;
 };
-Timers timerLCD;
 Timers timerLED1;
 Timers timerLED2;
 Timers timerLED3;
 Timers timerLED4;
+Timers timerLED5;
 Timers timerVib;
 
 
@@ -97,6 +97,7 @@ int cursorcolonne = 0;
 
 char keypadMessage[LCD_COL] = {};
 int MessageIndex = 0;
+bool currentMessage = false;
 
 byte rowPins[ROWS] = {25, 24, 23, 22};
 byte colPins[COLS] = {29, 28, 27, 26};
@@ -107,7 +108,7 @@ char hexaKeys[ROWS][COLS] = {
   {'0', '8', '5', '2'},
   {'A', '7', '4','1'}
 };
-Keypad customKeypad = Keypad(
+Keypad keys = Keypad(
     makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS);
 
 
@@ -120,18 +121,16 @@ int getPosition() {
   xVal = analogRead(VRX);
   yVal = analogRead(VRY);
 
-  if (yVal > JOY_MAX_TRESH && joyState != UP) {
-    joyState = UP;
+  if (yVal > JOY_MAX_TRESH)
     return UP;
-  }
   else if (yVal < JOY_MIN_TRESH)
-    return joyState = DOWN;
+    return DOWN;
   else if (xVal > JOY_MAX_TRESH)
-    return joyState = RIGHT;
+    return RIGHT;
   else if (xVal < JOY_MIN_TRESH)
-    return joyState = LEFT;
+    return LEFT;
   else
-    return joyState = J_CENTER;
+    return J_CENTER;
 }
 
 
@@ -154,39 +153,10 @@ float getPot() {
   potValue = 0.9 * potValue + 0.1 * analogRead(POT_INPUT);
   if (prevPotValue != potValue){
     prevPotValue = potValue;
+    /*controller["pot"] = map(potValue, 0, 1015, 0, 20);*/
   }
   return potValue;
 }
-
-
-/*~~~~~ LCD ~~~~~*/
-/*template <typename T>*/
-/*void display(T stream){*/
-/*  if (timerLCD.status)*/
-/*    for (int i = 0; i < LCD_COL; i++)*/
-/*      lcd.scrollDisplayRight();*/
-/**/
-/*  timerLCD.time1 = millis();*/
-/*  timerLCD.status = 1;*/
-/*  lcd.write(stream);*/
-/*  lcd.setCursor(1,0);*/
-/*}*/
-/**/
-/*template <typename T>*/
-/*void display(T stream, int i){*/
-/*  timerLCD.time2 = millis();*/
-/*  timerLCD.status = 1;*/
-/*  lcd.setCursor(i,0);*/
-/*  lcd.write(stream);*/
-/*}*/
-/**/
-/*void clearDisplay() {*/
-/*  lcd.clear();*/
-/*  lcd.setCursor(1,0);*/
-/*  timerLCD.time1 = 0;*/
-/*  timerLCD.time2 = 0;*/
-/*  timerLCD.status = 0;*/
-/*}*/
 
 
 /* Accelerometer */
@@ -247,16 +217,39 @@ void getButton() {
 }
 
 /*~~~~ Keypad ~~~~*/
+void messageInit() {
+  lcd.LiquidCrystal::clear();
+  lcd.write("Press A to send.", 0);
+  currentMessage = true;
+}
+
 void getKeypad() {
-  if (customKeypad.getKey() == 'A') {
-    controller["keypad"] = keypadMessage;
-    lcd.write(keypadMessage, 2);
-  } else if (customKeypad.getKey() == 'C') {
-    return;
-  } else {
-    return;
-    /*keypadMessage[MessageIndex] = customKeypad.getKey();*/
-    /*MessageIndex ++;*/
+  if (!currentMessage && keys.keyStateChanged())
+    messageInit();
+
+  switch (keys.getKey()) {
+    case 'A':
+      keypadMessage[MessageIndex] = '\0';
+      controller["keypad"] = keypadMessage;
+      lcd.write("Sent!", 0, 1000);
+      lcd.write(keypadMessage, 1, 1000);
+      currentMessage = false;
+      MessageIndex = 0;
+      keypadMessage[0] = '\0';
+      break;
+    case 'C':
+      lcd.LiquidCrystal::clear();
+      lcd.write("Cleared!", 0, 500);
+      currentMessage = false;
+      MessageIndex = 0;
+      keypadMessage[0] = '\0';
+      break;
+    case NO_KEY:
+      break;
+    default:
+      keypadMessage[MessageIndex] = keys.getKey();
+      MessageIndex++;
+      lcd.write(keypadMessage, 1);
   }
 }
 
@@ -349,6 +342,8 @@ void turnOnLED(int led, int time) {
 
 
 /*~~~~ Timers ~~~*/
+
+/* Checks LED timers and turns them off accordingly */
 void checktimer() {
   if (millis() - timerLED1.time > ledTime)
     turnOffLED(1);
@@ -422,24 +417,12 @@ void loop(){
   getKeypad();
   getButton();
   lcd.checkTimers();
+  checktimer();
 
-  /*char customKey = customKeypad.getKey();*/
-  /*if (customKey){*/
-  /*  if (cursorplace >= 16) {*/
-  /*    cursorrangee = 1;*/
-  /*    cursorcolonne = cursorplace -16;*/
-  /*  } else {*/
-  /*    cursorcolonne = cursorplace;*/
-  /*  }*/
+  /*~~~~~~~~~~~~~~~~~~ BarGraph ~~~~~~~~~~~~~~~~*/
+  writeBarGraph(getPot());
 
-  /*  lcd.setCursor(cursorcolonne,cursorrangee);*/
-  /*  lcd.write(customKey);*/
-  /*  cursorplace++;*/
-  /*}*/
-
-
-  /*~~~~~~~~~~~~~~~~ Bouttons ~~~~~~~~~~~~~~~~*/
-
+  /*~~~~~~~~~~~~~~~~ Buttons ~~~~~~~~~~~~~~~~~*/
   if (bUpIsPressed) {
     lcd.write("Button Up", 1, 500);
     turnOnLED(1);
@@ -465,28 +448,33 @@ void loop(){
   switch (getPosition()) {
     case UP:
       if (joyState == UP) break;
-      lcd.write("Up");
+      lcd.write("Up", 1, 500);
       controller["joy"] = UP;
+      joyState = UP;
       break;
     case DOWN:
       if (joyState == DOWN) break;
-      lcd.write("Down");
+      lcd.write("Down", 1, 500);
       controller["joy"] = DOWN;
+      joyState = DOWN;
       break;
     case RIGHT:
       if (joyState == RIGHT) break;
-      lcd.write("Right");
+      lcd.write("Right", 1, 500);
       controller["joy"] = RIGHT;
+      joyState = RIGHT;
       break;
     case LEFT:
       if (joyState == LEFT) break;
-      lcd.write("Left");
+      lcd.write("Left", 1, 500);
       controller["joy"] = LEFT;
+      joyState = LEFT;
       break;
     case J_CENTER:
       if (joyState == J_CENTER) break;
-      lcd.write("Centre");
+      lcd.write("Centre", 1, 500);
       controller["joy"] = J_CENTER;
+      joyState = J_CENTER;
   }
 
 
@@ -498,13 +486,6 @@ void loop(){
     controller["accelY"] = accel.y;
     controller["accelZ"] = accel.z;
   }
-
-  /*~~~~~~~~~~~~~~~~~~ BarGraph ~~~~~~~~~~~~~~~~*/
-  writeBarGraph(getPot());
-
-
-  /*~~~~~~~~~~~~~~~~~~ Timers ~~~~~~~~~~~~~~~~~~*/
-  checktimer();
 
   if (!controller.isNull()) {
     serializeJson(controller, Serial);

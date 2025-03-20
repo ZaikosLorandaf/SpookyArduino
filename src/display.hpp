@@ -21,6 +21,7 @@ class Display: public LiquidCrystal {
       :LiquidCrystal(rs, en, d4, d5, d6, d7) {
         for (int i = 0; i < LCD_COL; i++)
           emptyStr[i] = ' ';
+        emptyStr[LCD_COL] = '\0';
       }
 
     template<typename T>
@@ -31,14 +32,7 @@ class Display: public LiquidCrystal {
       }
     template<typename T>
       void write(T stream, int row) {
-        switch (row) {
-          case 0:
-            timer.time1 = millis();
-            timer.status1 = 1;
-          case 1:
-            timer.time1 = millis();
-            timer.status1 = 1;
-        }
+        clear(row);
         setCursor(0, row);
         LiquidCrystal::write(stream);
       }
@@ -53,14 +47,16 @@ class Display: public LiquidCrystal {
             timer.time2 = millis() + delay;
             timer.status2 = 1;
         }
-      setCursor(0, row);
+        clear(row);
+        setCursor(0, row);
         LiquidCrystal::write(stream);
       }
 
     void clear(int row) {
       setCursor(0, row);
-      write(emptyStr, row);
+      LiquidCrystal::write(emptyStr);
     }
+
 
     void checkTimers() {
       if (timer.time1 < millis() && timer.status1) {
@@ -78,7 +74,7 @@ class Display: public LiquidCrystal {
 
   private:
     Timer timer;      //Timer for upper row of lcd
-    char emptyStr[LCD_COL];
+    char emptyStr[LCD_COL + 1]; //Null terminated string
     char message1[LCD_COL];
     char message2[LCD_COL];
 
