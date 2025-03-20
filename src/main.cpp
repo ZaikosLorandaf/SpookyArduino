@@ -1,14 +1,21 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <Keypad.h>
-#include <LiquidCrystal.h>
+#include <ezButton.h>
+#include "ArduinoJson/Json/JsonSerializer.hpp"
+#include "HardwareSerial.h"
+#include "display.hpp"
 
 /*~~ Json Init ~~~*/
 JsonDocument controller;
 
+/*~~~ Vibrator ~~~*/
+#define VIB_PIN d7
+
 /*~~~ Joystick ~~~*/
-#define JOY_MIN_TRESH 800
-#define JOY_MAX_TRESH 200
+#define JOY_MIN_TRESH 200
+#define JOY_MAX_TRESH 800
+int joyState;
 
 #define VRX A4
 #define VRY A3
@@ -56,15 +63,13 @@ Accel accel{};
 
 
 /*~~~~~ LCD ~~~~*/
-#define LCD_COL 16
-#define LCD_ROW 2
 const int rs = 12;
 const int en = 11;
 const int d4 = 2;
 const int d5 = 3;
 const int d6 = 4;
 const int d7 = 5;
-LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
+Display lcd(rs, en, d4, d5, d6, d7);
 
 float lcdTime;
 
@@ -74,6 +79,7 @@ int displayTime = 500;
 int ledTime = 500;
 struct Timers {
   unsigned long time;
+  unsigned long time2;
   int status;
 };
 Timers timerLCD;
@@ -81,12 +87,16 @@ Timers timerLED1;
 Timers timerLED2;
 Timers timerLED3;
 Timers timerLED4;
+Timers timerVib;
 
 
 /*~~~~ Keypad ~~~*/
 int cursorplace = 0;
 int cursorrangee = 0;
 int cursorcolonne = 0;
+
+char keypadMessage[LCD_COL] = {};
+int MessageIndex = 0;
 
 byte rowPins[ROWS] = {25, 24, 23, 22};
 byte colPins[COLS] = {29, 28, 27, 26};
@@ -101,6 +111,7 @@ Keypad customKeypad = Keypad(
     makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS);
 
 
+
 /*~~~ Joystick ~~~*/
 int xVal = 0;
 int yVal = 0;
@@ -109,22 +120,24 @@ int getPosition() {
   xVal = analogRead(VRX);
   yVal = analogRead(VRY);
 
-  if (yVal > JOY_MAX_TRESH)
+  if (yVal > JOY_MAX_TRESH && joyState != UP) {
+    joyState = UP;
     return UP;
+  }
   else if (yVal < JOY_MIN_TRESH)
-    return DOWN;
+    return joyState = DOWN;
   else if (xVal > JOY_MAX_TRESH)
-    return RIGHT;
+    return joyState = RIGHT;
   else if (xVal < JOY_MIN_TRESH)
-    return LEFT;
+    return joyState = LEFT;
   else
-    return J_CENTER;
+    return joyState = J_CENTER;
 }
 
 
 /*~~~ BarGraph ~~~*/
 void writeBarGraph(float value) {
-  int level = map(value, 0, 1023, 0, BARGRAPHE_SIZE);
+  int level = map(value, 0, 1010, 0, BARGRAPHE_SIZE);
   for(int segment = 0; segment < BARGRAPHE_SIZE; segment++) {
     if(segment < level)
       digitalWrite(barPin[segment],HIGH);
@@ -145,25 +158,35 @@ float getPot() {
   return potValue;
 }
 
-template <typename T>
-void display(T stream){
 
-  if (timerLCD.status)
-    for (int i = 0; i < LCD_COL; i++)
-      lcd.scrollDisplayRight();
-
-  timerLCD.time = millis();
-  timerLCD.status = 1;
-  lcd.write(stream);
-  lcd.setCursor(1,0);
-}
-
-void clearDisplay() {
-  lcd.clear();
-  lcd.setCursor(1,0);
-  timerLCD.time = 0;
-  timerLCD.status = 0;
-}
+/*~~~~~ LCD ~~~~~*/
+/*template <typename T>*/
+/*void display(T stream){*/
+/*  if (timerLCD.status)*/
+/*    for (int i = 0; i < LCD_COL; i++)*/
+/*      lcd.scrollDisplayRight();*/
+/**/
+/*  timerLCD.time1 = millis();*/
+/*  timerLCD.status = 1;*/
+/*  lcd.write(stream);*/
+/*  lcd.setCursor(1,0);*/
+/*}*/
+/**/
+/*template <typename T>*/
+/*void display(T stream, int i){*/
+/*  timerLCD.time2 = millis();*/
+/*  timerLCD.status = 1;*/
+/*  lcd.setCursor(i,0);*/
+/*  lcd.write(stream);*/
+/*}*/
+/**/
+/*void clearDisplay() {*/
+/*  lcd.clear();*/
+/*  lcd.setCursor(1,0);*/
+/*  timerLCD.time1 = 0;*/
+/*  timerLCD.time2 = 0;*/
+/*  timerLCD.status = 0;*/
+/*}*/
 
 
 /* Accelerometer */
@@ -175,37 +198,69 @@ struct Accel getAccel() {
 }
 
 /*~~~~ Buttons ~~~*/
-int getButton() {
-  if (digitalRead(B_UP_PIN) == LOW)
-    return UP;
-  if (digitalRead(B_DOWN_PIN) == LOW)
-    return DOWN;
-  if (digitalRead(B_LEFT_PIN) == LOW)
-    return LEFT;
-  if (digitalRead(B_RIGHT_PIN) == LOW)
-    return RIGHT;
+ezButton bUp(B_UP_PIN);
+ezButton bDown(B_DOWN_PIN);
+ezButton bRight(B_RIGHT_PIN);
+ezButton bLeft(B_LEFT_PIN);
 
-  return 0;
-}
+// To track the current state of the buttons in order
+// to only send state changes to computer
+bool bUpIsPressed = false;
+bool bDownIsPressed = false;
+bool bRightIsPressed = false;
+bool bLeftIsPressed = false;
 
-/*~~~~~ LEDs ~~~~~*/
-void turnOnLED(int led) {
-  switch (led) {
-    case 1:
-      digitalWrite(LED1, HIGH);
-      break;
-    case 2:
-      digitalWrite(LED2, HIGH);
-      break;
-    case 3:
-      digitalWrite(LED3, HIGH);
-      break;
-    case 4:
-      digitalWrite(LED4, HIGH);
-      break;
+
+
+void getButton() {
+  if (bUp.isPressed() && !bUpIsPressed) {
+    bUpIsPressed = true;
+    controller["bUp"] = 1;
+  } else if (bUp.isReleased() && bUpIsPressed) {
+    bUpIsPressed = false;
+    controller["bUp"] = 0;
+  }
+
+  if (bDown.isPressed() && !bDownIsPressed) {
+    bDownIsPressed = true;
+    controller["bDown"] = 1;
+  } else if (bDown.isReleased() && bDownIsPressed) {
+    bDownIsPressed = false;
+    controller["bDown"] = 0;
+  }
+
+  if (bRight.isPressed() && !bRightIsPressed) {
+    bRightIsPressed = true;
+    controller["bRight"] = 1;
+  } else if (bRight.isReleased() && bRightIsPressed) {
+    bRightIsPressed = false;
+    controller["bRight"] = 0;
+  }
+
+  if (bLeft.isPressed() && !bLeftIsPressed) {
+    bLeftIsPressed = true;
+    controller["bLeft"] = 1;
+  } else if (bLeft.isReleased() && bLeftIsPressed) {
+    bLeftIsPressed = false;
+    controller["bLeft"] = 0;
   }
 }
 
+/*~~~~ Keypad ~~~~*/
+void getKeypad() {
+  if (customKeypad.getKey() == 'A') {
+    controller["keypad"] = keypadMessage;
+    lcd.write(keypadMessage, 2);
+  } else if (customKeypad.getKey() == 'C') {
+    return;
+  } else {
+    return;
+    /*keypadMessage[MessageIndex] = customKeypad.getKey();*/
+    /*MessageIndex ++;*/
+  }
+}
+
+/*~~~~~ LEDs ~~~~~*/
 void turnOffLED(int led) {
   switch (led) {
     case 1:
@@ -230,14 +285,71 @@ void turnOffAllLED() {
   digitalWrite(LED4, LOW);
 }
 
+void turnOnLED(int led) {
+  switch (led) {
+    case 1:
+      digitalWrite(LED1, HIGH);
+      break;
+    case 2:
+      digitalWrite(LED2, HIGH);
+      break;
+    case 3:
+      digitalWrite(LED3, HIGH);
+      break;
+    case 4:
+      digitalWrite(LED4, HIGH);
+      break;
+  }
+}
+
+void turnOnLED(int led, int time) {
+  switch (led) {
+    case 1:
+      digitalWrite(LED1, HIGH);
+      if (timerLED1.status == 0) {
+        timerLED1.time = millis();
+        timerLED1.status = 1;
+      } else if (timerLED1.time + time < millis()) {
+        turnOffLED(1);
+        timerLED1.status = 0;
+      }
+      break;
+    case 2:
+      digitalWrite(LED2, HIGH);
+      if (timerLED2.status == 0) {
+        timerLED2.time = millis();
+        timerLED2.status = 1;
+      } else if (timerLED2.time + time < millis()) {
+        turnOffLED(2);
+        timerLED2.status = 0;
+      }
+      break;
+    case 3:
+      digitalWrite(LED3, HIGH);
+      if (timerLED3.status == 0) {
+        timerLED3.time = millis();
+        timerLED3.status = 1;
+      } else if (timerLED3.time + time < millis()) {
+        turnOffLED(3);
+        timerLED3.status = 0;
+      }
+      break;
+    case 4:
+      digitalWrite(LED4, HIGH);
+      if (timerLED4.status == 0) {
+        timerLED4.time = millis();
+        timerLED4.status = 1;
+      } else if (timerLED4.time + time < millis()) {
+        turnOffLED(4);
+        timerLED4.status = 0;
+      }
+      break;
+  }
+}
+
 
 /*~~~~ Timers ~~~*/
 void checktimer() {
-  if (millis() - timerLCD.time > displayTime) {
-    timerLCD.status = 0;
-    clearDisplay();
-  }
-
   if (millis() - timerLED1.time > ledTime)
     turnOffLED(1);
   if (millis() - timerLED2.time > ledTime)
@@ -249,6 +361,18 @@ void checktimer() {
 }
 
 
+/*~~~ Vibrator ~~~*/
+const int motorPin = 9; // Digital pin to which the motor is connected
+
+/*
+   digitalWrite(motorPin, HIGH);
+   delay(1000); // Vibration for 1 second
+
+// Turn off the vibration motor
+digitalWrite(motorPin, LOW);
+delay(2000); // Pause for 2 seconds before the next vibration
+}
+*/
 
 
 
@@ -256,11 +380,10 @@ void setup(){
 
   lcd.begin(LCD_COL,LCD_ROW); //Sets the LCD's amount of columns and rows.
 
-  /*~~~~ Buttons ~~~*/
-  pinMode(B_UP_PIN,INPUT_PULLUP);
-  pinMode(B_DOWN_PIN,INPUT_PULLUP);
-  pinMode(B_RIGHT_PIN,INPUT_PULLUP);
-  pinMode(B_LEFT_PIN,INPUT_PULLUP);
+
+  /*~~~ Vibrator ~~~*/
+  pinMode(motorPin, VIB_PIN); // Set the motor pin as an output
+
 
   /*~~~~~ LEDs ~~~~~*/
   pinMode(LED1,OUTPUT);
@@ -278,8 +401,7 @@ void setup(){
   prevPotValue = analogRead(POT_INPUT);
 
   /*~~~ BarGraph ~~~*/
-  for(int segment = 0; segment < BARGRAPHE_SIZE; segment++)
-  {
+  for(int segment = 0; segment < BARGRAPHE_SIZE; segment++) {
     pinMode(barPin[segment],OUTPUT);
     digitalWrite(barPin[segment],LOW);
   }
@@ -292,91 +414,79 @@ void setup(){
 }
 
 void loop(){
-  // set the cursor to column 0, line 1
-  // (note: line 1 is the second row, since counting begins with 0):
-  char customKey = customKeypad.getKey();
+  bUp.loop();
+  bDown.loop();
+  bRight.loop();
+  bLeft.loop();
 
-  if (customKey){
-    if (cursorplace >= 16)
-    {
-      cursorrangee = 1;
-      cursorcolonne = cursorplace -16;
-    }
-    else{
-      cursorcolonne = cursorplace;
-    }
+  getKeypad();
+  getButton();
+  lcd.checkTimers();
 
-    //lcd.print(customKey);
-    lcd.setCursor(cursorcolonne,cursorrangee);
-    lcd.write(customKey);
-    /*Serial.println(cursorplace);*/
-    cursorplace++;
-  }
+  /*char customKey = customKeypad.getKey();*/
+  /*if (customKey){*/
+  /*  if (cursorplace >= 16) {*/
+  /*    cursorrangee = 1;*/
+  /*    cursorcolonne = cursorplace -16;*/
+  /*  } else {*/
+  /*    cursorcolonne = cursorplace;*/
+  /*  }*/
+
+  /*  lcd.setCursor(cursorcolonne,cursorrangee);*/
+  /*  lcd.write(customKey);*/
+  /*  cursorplace++;*/
+  /*}*/
 
 
   /*~~~~~~~~~~~~~~~~ Bouttons ~~~~~~~~~~~~~~~~*/
-  switch (getButton()) {
-    case UP:
-      display("Button Up");
-      timerLCD.time = millis();
-      controller["bUp"] = 1;
-      turnOnLED(1);
-      break;
-    case DOWN:
-      display("Button Down");
-      timerLCD.time = millis();
-      controller["bDown"] = 1;
-      turnOnLED(2);
-      break;
-    case RIGHT:
-      display("Button Right");
-      timerLCD.time = millis();
-      controller["bRight"] = 1;
-      turnOnLED(3);
-      break;
-    case LEFT:
-      display("Button Left");
-      timerLCD.time = millis();
-      controller["bLeft"] = 1;
-      turnOnLED(4);
-      break;
+
+  if (bUpIsPressed) {
+    lcd.write("Button Up", 1, 500);
+    turnOnLED(1);
+  }
+
+  if (bDownIsPressed) {
+    lcd.write("Button Down", 1, 500);
+    turnOnLED(2);
+  }
+
+  if (bRightIsPressed) {
+    lcd.write("Button Right", 0, 500);
+    turnOnLED(3);
+  }
+
+  if (bLeftIsPressed) {
+    lcd.write("Button Left", 0, 500);
+    turnOnLED(4);
   }
 
 
   /*~~~~~~~~~~~~~~~~ Joystick ~~~~~~~~~~~~~~~~~~~~*/
   switch (getPosition()) {
     case UP:
-      display("Up");
-      timerLCD.time = millis();
-      controller["xJoy"] = 0;
-      controller["yJoy"] = 1;
+      if (joyState == UP) break;
+      lcd.write("Up");
+      controller["joy"] = UP;
       break;
     case DOWN:
-      display("Down");
-      timerLCD.time = millis();
-      controller["xJoy"] = 0;
-      controller["yJoy"] = -1;
+      if (joyState == DOWN) break;
+      lcd.write("Down");
+      controller["joy"] = DOWN;
       break;
     case RIGHT:
-      display("Right");
-      timerLCD.time = millis();
-      controller["xJoy"] = -1;
-      controller["yJoy"] = 0;
+      if (joyState == RIGHT) break;
+      lcd.write("Right");
+      controller["joy"] = RIGHT;
       break;
     case LEFT:
-      display("Left");
-      timerLCD.time = millis();
-      controller["xJoy"] = 1;
-      controller["yJoy"] = 0;
+      if (joyState == LEFT) break;
+      lcd.write("Left");
+      controller["joy"] = LEFT;
       break;
-    default:
+    case J_CENTER:
+      if (joyState == J_CENTER) break;
       lcd.write("Centre");
-      timerLCD.time = millis();
-      delay(500);
-      lcd.clear();
-      lcd.setCursor(1,0);
-      controller["xJoy"] = 0;
-      controller["yJoy"] = 0;
+      controller["joy"] = J_CENTER;
   }
 
 
@@ -401,4 +511,3 @@ void loop(){
     controller.clear();
   }
 }
-
