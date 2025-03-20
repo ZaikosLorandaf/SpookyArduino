@@ -96,6 +96,7 @@ int cursorrangee = 0;
 int cursorcolonne = 0;
 
 char keypadMessage[LCD_COL] = {};
+char pressedKey = false;
 int MessageIndex = 0;
 bool currentMessage = false;
 
@@ -224,12 +225,17 @@ void messageInit() {
 }
 
 void getKeypad() {
+  if (pressedKey != 0 && keys.getKey() != 0)
+    return;
+
   if (!currentMessage && keys.keyStateChanged())
     messageInit();
 
-  switch (keys.getKey()) {
+
+  pressedKey = keys.getKey();
+
+  switch (pressedKey) {
     case 'A':
-      keypadMessage[MessageIndex] = '\0';
       controller["keypad"] = keypadMessage;
       lcd.write("Sent!", 0, 1000);
       lcd.write(keypadMessage, 1, 1000);
@@ -245,11 +251,14 @@ void getKeypad() {
       keypadMessage[0] = '\0';
       break;
     case NO_KEY:
+      pressedKey = false;
       break;
     default:
-      keypadMessage[MessageIndex] = keys.getKey();
-      MessageIndex++;
+      keypadMessage[MessageIndex] = pressedKey;
+      keypadMessage[MessageIndex + 1] = '\0';
+      ++MessageIndex;
       lcd.write(keypadMessage, 1);
+      break;
   }
 }
 
