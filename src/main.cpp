@@ -2,13 +2,14 @@
 #include <ArduinoJson.h>
 #include <Keypad.h>
 #include <ezButton.h>
-#include "ArduinoJson/Json/JsonSerializer.hpp"
-#include "HardwareSerial.h"
-#include "Key.h"
+#include "ArduinoJson/Document/JsonDocument.hpp"
+#include "ArduinoJson/Json/JsonDeserializer.hpp"
 #include "display.hpp"
 
 /*~~ Json Init ~~~*/
-JsonDocument controller;
+JsonDocument control;
+JsonDocument pc;
+char json[] = "{\"accelNeeded\":}";
 
 /*~~~ Vibrator ~~~*/
 #define VIB_PIN d7
@@ -45,6 +46,7 @@ int joyState;
 
 /* Potentiometer */
 #define POT_INPUT A0
+#define MAX_POT_VAL 1010
 
 /*~~ BarGraph ~~~*/
 #define BARGRAPHE_SIZE 10
@@ -54,14 +56,42 @@ int barPin[] = {52, 50, 48, 46, 44, 53, 51, 49, 47, 45};
 #define ACCEL_X A8
 #define ACCEL_Y A9
 #define ACCEL_Z A10
-bool accelNeeded = false;
+#define ACCEL_MIN 250
+#define ACCEL_MAX 400
+#define ACCEL_MIN_Z 100
+#define ACCEL_MAX_Z 900
+#define ACCEL_RANGE 10
+byte accelNeeded = 0;
 struct Accel{
   int x;
   int y;
   int z;
 };
-Accel accel{};
+Accel prevAccel{};
+Accel mappedAccel{};
 
+//Remaps acceleromete values in each axis betwen 0 and "ACCEL_RANGE"
+void getMappedAccel() {
+  mappedAccel.x = map(analogRead(A8), ACCEL_MIN, ACCEL_MAX, 0, ACCEL_RANGE);
+  mappedAccel.y = map(analogRead(A9), ACCEL_MIN, ACCEL_MAX, 0, ACCEL_RANGE);
+  mappedAccel.z = map(analogRead(A10), ACCEL_MIN_Z, ACCEL_MAX_Z, 0, ACCEL_RANGE);
+}
+
+//Checks and sends accelerometer valuer in desird values
+void checkAccel(byte axis) {
+  if (axis & (1<<0) && prevAccel.x != mappedAccel.x) {
+    control["accelX"] = mappedAccel.x;
+    prevAccel.x = mappedAccel.x;
+  }
+  if (axis & (1<<1) && prevAccel.y != mappedAccel.y) {
+    control["accelY"] = mappedAccel.y;
+    prevAccel.y = mappedAccel.y;
+  }
+  if (axis & (1<<2) && prevAccel.z != mappedAccel.z) {
+    control["accelZ"] = mappedAccel.z;
+    prevAccel.z = mappedAccel.z;
+  }
+}
 
 /*~~~~~ LCD ~~~~*/
 const int rs = 12;
@@ -73,7 +103,6 @@ const int d7 = 5;
 Display lcd(rs, en, d4, d5, d6, d7);
 
 float lcdTime;
-
 
 /*~~~~ Timers ~~~*/
 int displayTime = 500;
@@ -112,8 +141,6 @@ char hexaKeys[ROWS][COLS] = {
 Keypad keys = Keypad(
     makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS);
 
-
-
 /*~~~ Joystick ~~~*/
 int xVal = 0;
 int yVal = 0;
@@ -134,10 +161,9 @@ int getPosition() {
     return J_CENTER;
 }
 
-
 /*~~~ BarGraph ~~~*/
 void writeBarGraph(float value) {
-  int level = map(value, 0, 1010, 0, BARGRAPHE_SIZE);
+  int level = map(value, 0, MAX_POT_VAL, 0, BARGRAPHE_SIZE);
   for(int segment = 0; segment < BARGRAPHE_SIZE; segment++) {
     if(segment < level)
       digitalWrite(barPin[segment],HIGH);
@@ -148,24 +174,36 @@ void writeBarGraph(float value) {
   }
 }
 
+/*~~~ Vibrator ~~~*/
+const int motorPin = 7; // Digital pin to which the motor is connected
+
+//Vibrate for 'time' milliseconds
+void vibrate(int time) {
+  digitalWrite(motorPin, HIGH);
+  timerVib.time = millis() + time;
+  timerVib.status = 1;
+}
+
 /* Potentiometer */
-int potValue, prevPotValue;
+int potValue, prevPotValue, prevMappedVal;
+
+void remapSendValue(int val, int max) {
+  int mappedVal;
+  mappedVal = map(val, 0, MAX_POT_VAL, 0, max);
+  if (prevMappedVal != mappedVal) {
+    prevMappedVal = mappedVal;
+    vibrate(20);
+    control["pot"] = mappedVal;
+  }
+}
+
 float getPot() {
   potValue = 0.9 * potValue + 0.1 * analogRead(POT_INPUT);
   if (prevPotValue != potValue){
     prevPotValue = potValue;
-    /*controller["pot"] = map(potValue, 0, 1015, 0, 20);*/
+    remapSendValue(potValue, 15);
   }
   return potValue;
-}
-
-
-/* Accelerometer */
-struct Accel getAccel() {
-  accel.x = analogRead(A8);
-  accel.y = analogRead(A9);
-  accel.z = analogRead(A10);
-  return accel;
 }
 
 /*~~~~ Buttons ~~~*/
@@ -181,39 +219,37 @@ bool bDownIsPressed = false;
 bool bRightIsPressed = false;
 bool bLeftIsPressed = false;
 
-
-
 void getButton() {
   if (bUp.isPressed() && !bUpIsPressed) {
     bUpIsPressed = true;
-    controller["bUp"] = 1;
+    control["bUp"] = 1;
   } else if (bUp.isReleased() && bUpIsPressed) {
     bUpIsPressed = false;
-    controller["bUp"] = 0;
+    control["bUp"] = 0;
   }
 
   if (bDown.isPressed() && !bDownIsPressed) {
     bDownIsPressed = true;
-    controller["bDown"] = 1;
+    control["bDown"] = 1;
   } else if (bDown.isReleased() && bDownIsPressed) {
     bDownIsPressed = false;
-    controller["bDown"] = 0;
+    control["bDown"] = 0;
   }
 
   if (bRight.isPressed() && !bRightIsPressed) {
     bRightIsPressed = true;
-    controller["bRight"] = 1;
+    control["bRight"] = 1;
   } else if (bRight.isReleased() && bRightIsPressed) {
     bRightIsPressed = false;
-    controller["bRight"] = 0;
+    control["bRight"] = 0;
   }
 
   if (bLeft.isPressed() && !bLeftIsPressed) {
     bLeftIsPressed = true;
-    controller["bLeft"] = 1;
+    control["bLeft"] = 1;
   } else if (bLeft.isReleased() && bLeftIsPressed) {
     bLeftIsPressed = false;
-    controller["bLeft"] = 0;
+    control["bLeft"] = 0;
   }
 }
 
@@ -231,12 +267,11 @@ void getKeypad() {
   if (!currentMessage && keys.keyStateChanged())
     messageInit();
 
-
   pressedKey = keys.getKey();
 
   switch (pressedKey) {
     case 'A':
-      controller["keypad"] = keypadMessage;
+      control["keypad"] = keypadMessage;
       lcd.write("Sent!", 0, 1000);
       lcd.write(keypadMessage, 1, 1000);
       currentMessage = false;
@@ -301,6 +336,39 @@ void turnOnLED(int led) {
     case 4:
       digitalWrite(LED4, HIGH);
       break;
+    case 5:
+      digitalWrite(LED5, HIGH);
+      break;
+  }
+}
+
+void turnOnLED(int led, unsigned long time) {
+  switch (led) {
+    case 1:
+      digitalWrite(LED1, HIGH);
+      timerLED1.time = millis() + time;
+      timerLED1.status = 1;
+      break;
+    case 2:
+      digitalWrite(LED2, HIGH);
+      timerLED2.time = millis() + time;
+      timerLED2.status = 1;
+      break;
+    case 3:
+      digitalWrite(LED3, HIGH);
+      timerLED3.time = millis() + time;
+      timerLED3.status = 1;
+      break;
+    case 4:
+      digitalWrite(LED4, HIGH);
+      timerLED4.time = millis() + time;
+      timerLED4.status = 1;
+      break;
+    case 5:
+      digitalWrite(LED5, HIGH);
+      timerLED5.time = millis() + time;
+      timerLED5.status = 1;
+      break;
   }
 }
 
@@ -349,45 +417,30 @@ void turnOnLED(int led, int time) {
   }
 }
 
-
 /*~~~~ Timers ~~~*/
 
 /* Checks LED timers and turns them off accordingly */
 void checktimer() {
-  if (millis() - timerLED1.time > ledTime)
+  if (millis() > timerLED1.time && timerLED1.status)
     turnOffLED(1);
-  if (millis() - timerLED2.time > ledTime)
+  if (millis() > timerLED2.time && timerLED2.status)
     turnOffLED(2);
-  if (millis() - timerLED3.time > ledTime)
+  if (millis() > timerLED3.time && timerLED3.status)
     turnOffLED(3);
-  if (millis() - timerLED4.time > ledTime)
+  if (millis() > timerLED4.time && timerLED4.status)
     turnOffLED(4);
+  if (millis() > timerLED5.time && timerLED5.status)
+    turnOffLED(5);
+  if (millis() > timerVib.time && timerVib.status)
+    digitalWrite(motorPin, LOW);
 }
-
-
-/*~~~ Vibrator ~~~*/
-const int motorPin = 9; // Digital pin to which the motor is connected
-
-/*
-   digitalWrite(motorPin, HIGH);
-   delay(1000); // Vibration for 1 second
-
-// Turn off the vibration motor
-digitalWrite(motorPin, LOW);
-delay(2000); // Pause for 2 seconds before the next vibration
-}
-*/
-
 
 
 void setup(){
-
   lcd.begin(LCD_COL,LCD_ROW); //Sets the LCD's amount of columns and rows.
-
 
   /*~~~ Vibrator ~~~*/
   pinMode(motorPin, VIB_PIN); // Set the motor pin as an output
-
 
   /*~~~~~ LEDs ~~~~~*/
   pinMode(LED1,OUTPUT);
@@ -412,9 +465,9 @@ void setup(){
 
   /*~~~~ Serial ~~~~*/
   Serial.begin(9600);
-  controller["init"] = 1;
-  serializeJson(controller, Serial);
-  controller.clear();
+  control["init"] = 1;
+  serializeJson(control, Serial);
+  control.clear();
 }
 
 void loop(){
@@ -428,76 +481,78 @@ void loop(){
   lcd.checkTimers();
   checktimer();
 
+  /*~~~~~~~~~~~~~~~~ Accelerometer ~~~~~~~~~~~~~~~*/
+  accelNeeded = 7; //byte value from 0(none) to 7(all)
+  getMappedAccel();
+  checkAccel(accelNeeded);
+
   /*~~~~~~~~~~~~~~~~~~ BarGraph ~~~~~~~~~~~~~~~~*/
   writeBarGraph(getPot());
 
   /*~~~~~~~~~~~~~~~~ Buttons ~~~~~~~~~~~~~~~~~*/
   if (bUpIsPressed) {
     lcd.write("Button Up", 1, 500);
-    turnOnLED(1);
+    turnOnLED(1, ledTime);
   }
 
   if (bDownIsPressed) {
     lcd.write("Button Down", 1, 500);
-    turnOnLED(2);
+    turnOnLED(2, ledTime);
   }
 
   if (bRightIsPressed) {
     lcd.write("Button Right", 0, 500);
-    turnOnLED(3);
+    turnOnLED(3, ledTime);
   }
 
   if (bLeftIsPressed) {
     lcd.write("Button Left", 0, 500);
-    turnOnLED(4);
+    turnOnLED(4, ledTime);
   }
-
 
   /*~~~~~~~~~~~~~~~~ Joystick ~~~~~~~~~~~~~~~~~~~~*/
   switch (getPosition()) {
     case UP:
       if (joyState == UP) break;
       lcd.write("Up", 1, 500);
-      controller["joy"] = UP;
+      control["joy"] = UP;
       joyState = UP;
+      turnOnLED(5, ledTime);
       break;
     case DOWN:
       if (joyState == DOWN) break;
       lcd.write("Down", 1, 500);
-      controller["joy"] = DOWN;
+      control["joy"] = DOWN;
       joyState = DOWN;
+      turnOnLED(5, ledTime);
       break;
     case RIGHT:
       if (joyState == RIGHT) break;
       lcd.write("Right", 1, 500);
-      controller["joy"] = RIGHT;
+      control["joy"] = RIGHT;
       joyState = RIGHT;
+      turnOnLED(5, ledTime);
       break;
     case LEFT:
       if (joyState == LEFT) break;
       lcd.write("Left", 1, 500);
-      controller["joy"] = LEFT;
+      control["joy"] = LEFT;
       joyState = LEFT;
+      turnOnLED(5, ledTime);
       break;
     case J_CENTER:
       if (joyState == J_CENTER) break;
       lcd.write("Centre", 1, 500);
-      controller["joy"] = J_CENTER;
+      control["joy"] = J_CENTER;
       joyState = J_CENTER;
+      turnOnLED(5, ledTime);
   }
 
+  deserializeJson(pc, json);
+  accelNeeded = pc["accelNeeded"];
 
-
-  /*~~~~~~~~~~~~~~~~ Accelerometer ~~~~~~~~~~~~~~~*/
-  if (accelNeeded) {
-    accel = getAccel();
-    controller["accelX"] = accel.x;
-    controller["accelY"] = accel.y;
-    controller["accelZ"] = accel.z;
-  }
-
-  if (!controller.isNull()) {
-    serializeJson(controller, Serial);
-    controller.clear();
+  if (!control.isNull()) {
+    serializeJson(control, Serial);
+    control.clear();
   }
 }
