@@ -414,6 +414,16 @@ void turnOnLED(int led, int time) {
         timerLED4.status = 0;
       }
       break;
+    case 5:
+      digitalWrite(LED5, HIGH);
+      if (timerLED5.status == 0) {
+        timerLED5.time = millis();
+        timerLED5.status = 1;
+      } else if (timerLED5.time + time < millis()) {
+        turnOffLED(5);
+        timerLED5.status = 0;
+      }
+      break;
   }
 }
 
@@ -471,83 +481,83 @@ void setup(){
 }
 
 void loop(){
+  /*~~~~~~ Needed for Buttons... ~~~~~~~*/
   bUp.loop();
   bDown.loop();
   bRight.loop();
   bLeft.loop();
 
+  /*~~~~~~~~~~~~ Functions ~~~~~~~~~~~~~*/
   getKeypad();
   getButton();
-  lcd.checkTimers();
   checktimer();
+  lcd.checkTimers();
 
-  /*~~~~~~~~~~~~~~~~ Accelerometer ~~~~~~~~~~~~~~~*/
-  accelNeeded = 7; //byte value from 0(none) to 7(all)
+  /*~~~~~~~~~~~ Accelerometer ~~~~~~~~~~*/
+  accelNeeded = 0; //byte value from 0(none) to 7(all)
   getMappedAccel();
   checkAccel(accelNeeded);
 
-  /*~~~~~~~~~~~~~~~~~~ BarGraph ~~~~~~~~~~~~~~~~*/
+  /*~~~~~~~~~~~~~ BarGraph ~~~~~~~~~~~~~*/
   writeBarGraph(getPot());
 
-  /*~~~~~~~~~~~~~~~~ Buttons ~~~~~~~~~~~~~~~~~*/
+  /*~~~~~~~~~~~~~ Buttons ~~~~~~~~~~~~~~*/
   if (bUpIsPressed) {
     lcd.write("Button Up", 1, 500);
     turnOnLED(1, ledTime);
   }
-
   if (bDownIsPressed) {
     lcd.write("Button Down", 1, 500);
     turnOnLED(2, ledTime);
   }
-
   if (bRightIsPressed) {
     lcd.write("Button Right", 0, 500);
     turnOnLED(3, ledTime);
   }
-
   if (bLeftIsPressed) {
     lcd.write("Button Left", 0, 500);
     turnOnLED(4, ledTime);
   }
 
-  /*~~~~~~~~~~~~~~~~ Joystick ~~~~~~~~~~~~~~~~~~~~*/
+  /*~~~~~~~~~~~~~ Joystick ~~~~~~~~~~~~~*/
   switch (getPosition()) {
     case UP:
       if (joyState == UP) break;
       lcd.write("Up", 1, 500);
       control["joy"] = UP;
       joyState = UP;
-      turnOnLED(5, ledTime);
+      turnOnLED(5);
       break;
     case DOWN:
       if (joyState == DOWN) break;
       lcd.write("Down", 1, 500);
       control["joy"] = DOWN;
       joyState = DOWN;
-      turnOnLED(5, ledTime);
+      turnOnLED(5);
       break;
     case RIGHT:
       if (joyState == RIGHT) break;
       lcd.write("Right", 1, 500);
       control["joy"] = RIGHT;
       joyState = RIGHT;
-      turnOnLED(5, ledTime);
+      turnOnLED(5);
       break;
     case LEFT:
       if (joyState == LEFT) break;
       lcd.write("Left", 1, 500);
       control["joy"] = LEFT;
       joyState = LEFT;
-      turnOnLED(5, ledTime);
+      turnOnLED(5);
       break;
     case J_CENTER:
       if (joyState == J_CENTER) break;
       lcd.write("Centre", 1, 500);
       control["joy"] = J_CENTER;
       joyState = J_CENTER;
-      turnOnLED(5, ledTime);
+      turnOnLED(5);
   }
 
+  /*~~~~~~~~~~~~~~~ Json ~~~~~~~~~~~~~~~*/
   deserializeJson(pc, json);
   accelNeeded = pc["accelNeeded"];
 
