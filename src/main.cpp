@@ -2,14 +2,31 @@
 #include <ArduinoJson.h>
 #include <Keypad.h>
 #include <ezButton.h>
-#include "ArduinoJson/Document/JsonDocument.hpp"
-#include "ArduinoJson/Json/JsonDeserializer.hpp"
 #include "display.hpp"
 
 /*~~ Json Init ~~~*/
 JsonDocument control;
 JsonDocument pc;
 char json[] = "{\"accelNeeded\":}";
+
+/* Json document legend:
+bUp:    int (0,1)
+bDown:  int (0,1)
+bLeft:  int (0,1)
+bRight: int (0,1)
+
+joy:    int (0-4)
+
+pot:    int (0-20)
+
+accelX: int (0-10)
+accelY: int (0-10)
+accelZ: int (0-10)
+
+keypad: char[LCD_COL] (LCD_COL = 16)
+*/
+
+
 
 /*~~~ Vibrator ~~~*/
 #define VIB_PIN d7
@@ -177,7 +194,7 @@ void writeBarGraph(float value) {
 /*~~~ Vibrator ~~~*/
 const int motorPin = 7; // Digital pin to which the motor is connected
 
-//Vibrate for 'time' milliseconds
+// Vibrate for 'time' milliseconds
 void vibrate(int time) {
   digitalWrite(motorPin, HIGH);
   timerVib.time = millis() + time;
@@ -187,6 +204,8 @@ void vibrate(int time) {
 /* Potentiometer */
 int potValue, prevPotValue, prevMappedVal;
 
+// Change the base of the Potentiometer
+// from 0-'MAX_POT_VAL' to 0-'val'
 void remapSendValue(int val, int max) {
   int mappedVal;
   mappedVal = map(val, 0, MAX_POT_VAL, 0, max);
