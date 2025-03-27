@@ -7,7 +7,7 @@
 /*~~ Json Init ~~~*/
 JsonDocument control;
 JsonDocument pc;
-char json[] = "{\"accelNeeded\":}";
+char input[] = "{\"accelNeeded\",\"lcdMessage\"}";
 
 /* Json document legend:
 bUp:    int (0,1)
@@ -15,15 +15,19 @@ bDown:  int (0,1)
 bLeft:  int (0,1)
 bRight: int (0,1)
 
-joy:    int (0-4)
+joy:  int (0-4)
 
-pot:    int (0-20)
+pot:  int (0-20)
 
 accelX: int (0-10)
 accelY: int (0-10)
 accelZ: int (0-10)
 
 keypad: char[LCD_COL] (LCD_COL = 16)
+
+//Needed from PC
+accelNeeded: bool
+lcdMessage: char[16]
 */
 
 
@@ -120,6 +124,8 @@ const int d7 = 5;
 Display lcd(rs, en, d4, d5, d6, d7);
 
 float lcdTime;
+
+char* lcdMessage;
 
 /*~~~~ Timers ~~~*/
 int displayTime = 500;
@@ -574,8 +580,13 @@ void loop(){
   }
 
   /*~~~~~~~~~~~~~~~ Json ~~~~~~~~~~~~~~~*/
-  deserializeJson(pc, json);
+  deserializeJson(pc, input);
   accelNeeded = pc["accelNeeded"];
+  lcdMessage = pc["lcdMessage"];
+
+  /*if (lcdMessage) {*/
+  /*  lcd.write(lcdMessage);*/
+  /*}*/
 
   if (!control.isNull()) {
     serializeJson(control, Serial);
