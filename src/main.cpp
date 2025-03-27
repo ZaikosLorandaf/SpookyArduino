@@ -312,6 +312,9 @@ void turnOffLED(int led) {
     case 4:
       digitalWrite(LED4, LOW);
       break;
+    case 5:
+      digitalWrite(LED5, LOW);
+      break;
   }
 }
 
@@ -320,6 +323,7 @@ void turnOffAllLED() {
   digitalWrite(LED2, LOW);
   digitalWrite(LED3, LOW);
   digitalWrite(LED4, LOW);
+  digitalWrite(LED5, LOW);
 }
 
 void turnOnLED(int led) {
@@ -376,53 +380,33 @@ void turnOnLED(int led, int time) {
   switch (led) {
     case 1:
       digitalWrite(LED1, HIGH);
-      if (timerLED1.status == 0) {
-        timerLED1.time = millis();
-        timerLED1.status = 1;
-      } else if (timerLED1.time + time < millis()) {
-        turnOffLED(1);
-        timerLED1.status = 0;
-      }
+      if (timerLED1.status != 0) break;
+      timerLED1.time = millis() + time;
+      timerLED1.status = 1;
       break;
     case 2:
       digitalWrite(LED2, HIGH);
-      if (timerLED2.status == 0) {
-        timerLED2.time = millis();
-        timerLED2.status = 1;
-      } else if (timerLED2.time + time < millis()) {
-        turnOffLED(2);
-        timerLED2.status = 0;
-      }
+      if (timerLED2.status != 0) break;
+      timerLED2.time = millis() + time;
+      timerLED2.status = 1;
       break;
     case 3:
       digitalWrite(LED3, HIGH);
-      if (timerLED3.status == 0) {
-        timerLED3.time = millis();
-        timerLED3.status = 1;
-      } else if (timerLED3.time + time < millis()) {
-        turnOffLED(3);
-        timerLED3.status = 0;
-      }
+      if (timerLED3.status != 0) break;
+      timerLED3.time = millis() + time;
+      timerLED3.status = 1;
       break;
     case 4:
       digitalWrite(LED4, HIGH);
-      if (timerLED4.status == 0) {
-        timerLED4.time = millis();
-        timerLED4.status = 1;
-      } else if (timerLED4.time + time < millis()) {
-        turnOffLED(4);
-        timerLED4.status = 0;
-      }
+      if (timerLED4.status != 0) break;
+      timerLED4.time = millis() + time;
+      timerLED4.status = 1;
       break;
     case 5:
       digitalWrite(LED5, HIGH);
-      if (timerLED5.status == 0) {
-        timerLED5.time = millis();
-        timerLED5.status = 1;
-      } else if (timerLED5.time + time < millis()) {
-        turnOffLED(5);
-        timerLED5.status = 0;
-      }
+      if (timerLED5.status != 0) break;
+      timerLED5.time = millis() + time;
+      timerLED5.status = 1;
       break;
   }
 }
@@ -431,18 +415,30 @@ void turnOnLED(int led, int time) {
 
 /* Checks LED timers and turns them off accordingly */
 void checktimer() {
-  if (millis() > timerLED1.time && timerLED1.status)
+  if (millis() > timerLED1.time && timerLED1.status) {
     turnOffLED(1);
-  if (millis() > timerLED2.time && timerLED2.status)
+    timerLED1.status = 0;
+  }
+  if (millis() > timerLED2.time && timerLED2.status) {
     turnOffLED(2);
-  if (millis() > timerLED3.time && timerLED3.status)
+    timerLED2.status = 0;
+  }
+  if (millis() > timerLED3.time && timerLED3.status) {
     turnOffLED(3);
-  if (millis() > timerLED4.time && timerLED4.status)
+    timerLED3.status = 0;
+  }
+  if (millis() > timerLED4.time && timerLED4.status) {
     turnOffLED(4);
-  if (millis() > timerLED5.time && timerLED5.status)
+    timerLED4.status = 0;
+  }
+  if (millis() > timerLED5.time && timerLED5.status) {
     turnOffLED(5);
-  if (millis() > timerVib.time && timerVib.status)
+    timerLED5.status = 0;
+  }
+  if (millis() > timerVib.time && timerVib.status) {
     digitalWrite(motorPin, LOW);
+    timerVib.status = 0;
+  }
 }
 
 
@@ -554,7 +550,8 @@ void loop(){
       lcd.write("Centre", 1, 500);
       control["joy"] = J_CENTER;
       joyState = J_CENTER;
-      turnOnLED(5);
+      turnOnLED(5, ledTime);
+      break;
   }
 
   /*~~~~~~~~~~~~~~~ Json ~~~~~~~~~~~~~~~*/
