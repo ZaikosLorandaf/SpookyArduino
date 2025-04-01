@@ -2,12 +2,13 @@
 #include <ArduinoJson.h>
 #include <Keypad.h>
 #include <ezButton.h>
+#include "HardwareSerial.h"
 #include "display.hpp"
 
 /*~~ Json Init ~~~*/
-JsonDocument control;
-JsonDocument pc;
-char input[] = "{\"accelNeeded\",\"lcdMessage\"}";
+JsonDocument toPC;
+/*JsonDocument pc;*/
+/*char input[] = "{\"accelNeeded\",\"lcdMessage\"}";*/
 
 /* Json document legend:
 ~~ Sent from Arduino ~~
@@ -28,7 +29,7 @@ keypad: char[LCD_COL] (LCD_COL = 16)
 
 
 ~~ Needed from PC ~~
-accelNeeded: bool
+accelNeeded: byte (000)
 lcdMessage: char[16]
 */
 
@@ -84,7 +85,7 @@ int barPin[] = {52, 50, 48, 46, 44, 53, 51, 49, 47, 45};
 #define ACCEL_MIN_Z 100
 #define ACCEL_MAX_Z 900
 #define ACCEL_RANGE 10
-byte accelNeeded = 0;
+byte accelNeeded = 0; //byte value from 0(none) to 7(all)
 struct Accel{
   int x;
   int y;
@@ -103,15 +104,15 @@ void getMappedAccel() {
 //Checks and sends accelerometer valuer in desird values
 void checkAccel(byte axis) {
   if (axis & (1<<0) && prevAccel.x != mappedAccel.x) {
-    control["accelX"] = mappedAccel.x;
+    toPC["accelX"] = mappedAccel.x;
     prevAccel.x = mappedAccel.x;
   }
   if (axis & (1<<1) && prevAccel.y != mappedAccel.y) {
-    control["accelY"] = mappedAccel.y;
+    toPC["accelY"] = mappedAccel.y;
     prevAccel.y = mappedAccel.y;
   }
   if (axis & (1<<2) && prevAccel.z != mappedAccel.z) {
-    control["accelZ"] = mappedAccel.z;
+    toPC["accelZ"] = mappedAccel.z;
     prevAccel.z = mappedAccel.z;
   }
 }
@@ -220,7 +221,7 @@ void remapSendValue(int val, int max) {
   if (prevMappedVal != mappedVal) {
     prevMappedVal = mappedVal;
     vibrate(20);
-    control["pot"] = mappedVal;
+    /*control["pot"] = mappedVal;*/
   }
 }
 
@@ -249,34 +250,34 @@ bool bLeftIsPressed = false;
 void getButton() {
   if (bUp.isPressed() && !bUpIsPressed) {
     bUpIsPressed = true;
-    control["bUp"] = 1;
+    toPC["bUp"] = 1;
   } else if (bUp.isReleased() && bUpIsPressed) {
     bUpIsPressed = false;
-    control["bUp"] = 0;
+    toPC["bUp"] = 0;
   }
 
   if (bDown.isPressed() && !bDownIsPressed) {
     bDownIsPressed = true;
-    control["bDown"] = 1;
+    toPC["bDown"] = 1;
   } else if (bDown.isReleased() && bDownIsPressed) {
     bDownIsPressed = false;
-    control["bDown"] = 0;
+    toPC["bDown"] = 0;
   }
 
   if (bRight.isPressed() && !bRightIsPressed) {
     bRightIsPressed = true;
-    control["bRight"] = 1;
+    toPC["bRight"] = 1;
   } else if (bRight.isReleased() && bRightIsPressed) {
     bRightIsPressed = false;
-    control["bRight"] = 0;
+    toPC["bRight"] = 0;
   }
 
   if (bLeft.isPressed() && !bLeftIsPressed) {
     bLeftIsPressed = true;
-    control["bLeft"] = 1;
+    toPC["bLeft"] = 1;
   } else if (bLeft.isReleased() && bLeftIsPressed) {
     bLeftIsPressed = false;
-    control["bLeft"] = 0;
+    toPC["bLeft"] = 0;
   }
 }
 
@@ -298,7 +299,7 @@ void getKeypad() {
 
   switch (pressedKey) {
     case 'A':
-      control["keypad"] = keypadMessage;
+      toPC["keypad"] = keypadMessage;
       lcd.write("Sent!", 0, 1000);
       lcd.write(keypadMessage, 1, 1000);
       currentMessage = false;
@@ -468,26 +469,84 @@ void checktimer() {
   }
 }
 
+void checkJoyState() {
+  switch (getPosition()) {
+    case UP:
+      if (joyState == UP) break;
+      lcd.write("Up", 1, 500);
+      toPC["joy"] = UP;
+      joyState = UP;
+      turnOnLED(5);
+      break;
+    case DOWN:
+      if (joyState == DOWN) break;
+      lcd.write("Down", 1, 500);
+      toPC["joy"] = DOWN;
+      joyState = DOWN;
+      turnOnLED(5);
+      break;
+    case RIGHT:
+      if (joyState == RIGHT) break;
+      lcd.write("Right", 1, 500);
+      toPC["joy"] = RIGHT;
+      joyState = RIGHT;
+      turnOnLED(5);
+      break;
+    case LEFT:
+      if (joyState == LEFT) break;
+      lcd.write("Left", 1, 500);
+      toPC["joy"] = LEFT;
+      joyState = LEFT;
+      turnOnLED(5);
+      break;
+    case J_CENTER:
+      if (joyState == J_CENTER) break;
+      lcd.write("Centre", 1, 500);
+      toPC["joy"] = J_CENTER;
+      joyState = J_CENTER;
+      turnOnLED(5, ledTime);
+      break;
+  }
+}
+
+void getButtonState() {
+  if (bUpIsPressed) {
+    lcd.write("Button Up", 1, 500);
+    turnOnLED(1, ledTime);
+  }
+  if (bDownIsPressed) {
+    lcd.write("Button Down", 1, 500);
+    turnOnLED(2, ledTime);
+  }
+  if (bRightIsPressed) {
+    lcd.write("Button Right", 0, 500);
+    turnOnLED(3, ledTime);
+  }
+  if (bLeftIsPressed) {
+    lcd.write("Button Left", 0, 500);
+    turnOnLED(4, ledTime);
+  }
+}
+
 
 void readMsg() {
   JsonDocument doc;
   JsonVariant parseMsg;
 
-  /*DeserializationError error = deserializeJson(doc, Serial);*/
+  DeserializationError error = deserializeJson(doc, Serial);
 
-  /*if (error) {*/
-  /*  Serial.print("deserialize() failed: ");*/
-  /*  Serial.println(error.c_str());*/
-  /*}*/
+  if (error) {
+    Serial.print("deserialize() failed: ");
+    Serial.println(error.c_str());
+  }
 
-  parseMsg = doc["accelNeeded"];
-  if (!parseMsg.isNull())
-    accelNeeded = true;
+  if (!doc["accelNeeded"].isNull())
+    accelNeeded = doc["accelNeeded"].as<byte>();
   else
-    accelNeeded = false;
-  parseMsg = doc["lcdMessage"];
-  /*if (!parseMsg.isNull())*/
-    /*lcd.write(parseMsg);*/
+    accelNeeded = 0;
+
+  if (!doc["lcdMessage"].isNull())
+    lcd.write(doc["lcdMessage"].as<unsigned char>());
 }
 
 
@@ -520,9 +579,9 @@ void setup(){
 
   /*~~~~ Serial ~~~~*/
   Serial.begin(9600);
-  control["init"] = 1;
-  serializeJson(control, Serial);
-  control.clear();
+  toPC["init"] = 1;
+  serializeJson(toPC, Serial);
+  toPC.clear();
 }
 
 void loop(){
@@ -539,7 +598,6 @@ void loop(){
   lcd.checkTimers();
 
   /*~~~~~~~~~~~ Accelerometer ~~~~~~~~~~*/
-  accelNeeded = 0; //byte value from 0(none) to 7(all)
   getMappedAccel();
   checkAccel(accelNeeded);
 
@@ -547,68 +605,18 @@ void loop(){
   writeBarGraph(getPot());
 
   /*~~~~~~~~~~~~~ Buttons ~~~~~~~~~~~~~~*/
-  if (bUpIsPressed) {
-    lcd.write("Button Up", 1, 500);
-    turnOnLED(1, ledTime);
-  }
-  if (bDownIsPressed) {
-    lcd.write("Button Down", 1, 500);
-    turnOnLED(2, ledTime);
-  }
-  if (bRightIsPressed) {
-    lcd.write("Button Right", 0, 500);
-    turnOnLED(3, ledTime);
-  }
-  if (bLeftIsPressed) {
-    lcd.write("Button Left", 0, 500);
-    turnOnLED(4, ledTime);
-  }
+  getButtonState();
 
   /*~~~~~~~~~~~~~ Joystick ~~~~~~~~~~~~~*/
-  switch (getPosition()) {
-    case UP:
-      if (joyState == UP) break;
-      lcd.write("Up", 1, 500);
-      control["joy"] = UP;
-      joyState = UP;
-      turnOnLED(5);
-      break;
-    case DOWN:
-      if (joyState == DOWN) break;
-      lcd.write("Down", 1, 500);
-      control["joy"] = DOWN;
-      joyState = DOWN;
-      turnOnLED(5);
-      break;
-    case RIGHT:
-      if (joyState == RIGHT) break;
-      lcd.write("Right", 1, 500);
-      control["joy"] = RIGHT;
-      joyState = RIGHT;
-      turnOnLED(5);
-      break;
-    case LEFT:
-      if (joyState == LEFT) break;
-      lcd.write("Left", 1, 500);
-      control["joy"] = LEFT;
-      joyState = LEFT;
-      turnOnLED(5);
-      break;
-    case J_CENTER:
-      if (joyState == J_CENTER) break;
-      lcd.write("Centre", 1, 500);
-      control["joy"] = J_CENTER;
-      joyState = J_CENTER;
-      turnOnLED(5, ledTime);
-      break;
-  }
+  checkJoyState();
 
   /*~~~~~~~~~~~~~~~ Json ~~~~~~~~~~~~~~~*/
-  readMsg();
 
-  if (!control.isNull()) {
-    serializeJson(control, Serial);
-    Serial.println();
-    control.clear();
+  if (Serial.available())
+    readMsg();
+
+  if (!toPC.isNull()) {
+    serializeJson(toPC, Serial);
+    toPC.clear();
   }
 }
