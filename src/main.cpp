@@ -10,6 +10,7 @@ JsonDocument pc;
 char input[] = "{\"accelNeeded\",\"lcdMessage\"}";
 
 /* Json document legend:
+~~ Sent from Arduino ~~
 bUp:    int (0,1)
 bDown:  int (0,1)
 bLeft:  int (0,1)
@@ -25,7 +26,8 @@ accelZ: int (0-10)
 
 keypad: char[LCD_COL] (LCD_COL = 16)
 
-//Needed from PC
+
+~~ Needed from PC ~~
 accelNeeded: bool
 lcdMessage: char[16]
 */
@@ -467,6 +469,28 @@ void checktimer() {
 }
 
 
+void readMsg() {
+  JsonDocument doc;
+  JsonVariant parseMsg;
+
+  /*DeserializationError error = deserializeJson(doc, Serial);*/
+
+  /*if (error) {*/
+  /*  Serial.print("deserialize() failed: ");*/
+  /*  Serial.println(error.c_str());*/
+  /*}*/
+
+  parseMsg = doc["accelNeeded"];
+  if (!parseMsg.isNull())
+    accelNeeded = true;
+  else
+    accelNeeded = false;
+  parseMsg = doc["lcdMessage"];
+  /*if (!parseMsg.isNull())*/
+    /*lcd.write(parseMsg);*/
+}
+
+
 void setup(){
   lcd.begin(LCD_COL,LCD_ROW); //Sets the LCD's amount of columns and rows.
 
@@ -580,16 +604,11 @@ void loop(){
   }
 
   /*~~~~~~~~~~~~~~~ Json ~~~~~~~~~~~~~~~*/
-  deserializeJson(pc, input);
-  accelNeeded = pc["accelNeeded"];
-  lcdMessage = pc["lcdMessage"];
-
-  /*if (lcdMessage) {*/
-  /*  lcd.write(lcdMessage);*/
-  /*}*/
+  readMsg();
 
   if (!control.isNull()) {
     serializeJson(control, Serial);
+    Serial.println();
     control.clear();
   }
 }
