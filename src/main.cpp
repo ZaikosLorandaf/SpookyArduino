@@ -2,7 +2,6 @@
 #include <ArduinoJson.h>
 #include <Keypad.h>
 #include <ezButton.h>
-#include "HardwareSerial.h"
 #include "display.hpp"
 
 /*~~ Json Init ~~~*/
@@ -12,20 +11,20 @@ JsonDocument toPC;
 
 /* Json document legend:
 ~~ Sent from Arduino ~~
-bUp:    int (0,1)
-bDown:  int (0,1)
-bLeft:  int (0,1)
-bRight: int (0,1)
+bUp:  int (0,1)
+bDo:  int (0,1)
+bLe:  int (0,1)
+bRi:  int (0,1)
 
 joy:  int (0-4)
 
 pot:  int (0-20)
 
-accelX: int (0-10)
-accelY: int (0-10)
-accelZ: int (0-10)
+accX: int (0-10)
+accY: int (0-10)
+accZ: int (0-10)
 
-keypad: char[LCD_COL] (LCD_COL = 16)
+kpd:  char[LCD_COL] (LCD_COL = 16)
 
 
 ~~ Needed from PC ~~
@@ -104,15 +103,15 @@ void getMappedAccel() {
 //Checks and sends accelerometer valuer in desird values
 void checkAccel(byte axis) {
   if (axis & (1<<0) && prevAccel.x != mappedAccel.x) {
-    toPC["accelX"] = mappedAccel.x;
+    toPC["accX"] = mappedAccel.x;
     prevAccel.x = mappedAccel.x;
   }
   if (axis & (1<<1) && prevAccel.y != mappedAccel.y) {
-    toPC["accelY"] = mappedAccel.y;
+    toPC["accY"] = mappedAccel.y;
     prevAccel.y = mappedAccel.y;
   }
   if (axis & (1<<2) && prevAccel.z != mappedAccel.z) {
-    toPC["accelZ"] = mappedAccel.z;
+    toPC["accZ"] = mappedAccel.z;
     prevAccel.z = mappedAccel.z;
   }
 }
@@ -258,26 +257,26 @@ void getButton() {
 
   if (bDown.isPressed() && !bDownIsPressed) {
     bDownIsPressed = true;
-    toPC["bDown"] = 1;
+    toPC["bDo"] = 1;
   } else if (bDown.isReleased() && bDownIsPressed) {
     bDownIsPressed = false;
-    toPC["bDown"] = 0;
+    toPC["bDo"] = 0;
   }
 
   if (bRight.isPressed() && !bRightIsPressed) {
     bRightIsPressed = true;
-    toPC["bRight"] = 1;
+    toPC["bRi"] = 1;
   } else if (bRight.isReleased() && bRightIsPressed) {
     bRightIsPressed = false;
-    toPC["bRight"] = 0;
+    toPC["bRi"] = 0;
   }
 
   if (bLeft.isPressed() && !bLeftIsPressed) {
     bLeftIsPressed = true;
-    toPC["bLeft"] = 1;
+    toPC["bLe"] = 1;
   } else if (bLeft.isReleased() && bLeftIsPressed) {
     bLeftIsPressed = false;
-    toPC["bLeft"] = 0;
+    toPC["bLe"] = 0;
   }
 }
 
@@ -299,7 +298,7 @@ void getKeypad() {
 
   switch (pressedKey) {
     case 'A':
-      toPC["keypad"] = keypadMessage;
+      toPC["kpd"] = keypadMessage;
       lcd.write("Sent!", 0, 1000);
       lcd.write(keypadMessage, 1, 1000);
       currentMessage = false;
@@ -578,7 +577,7 @@ void setup(){
   }
 
   /*~~~~ Serial ~~~~*/
-  Serial.begin(9600);
+  Serial.begin(115200);
   toPC["init"] = 1;
   serializeJson(toPC, Serial);
   toPC.clear();
