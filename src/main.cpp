@@ -24,8 +24,9 @@ accX: int (0-10)
 accY: int (0-10)
 accZ: int (0-10)
 
-kpd:  char[LCD_COL] (LCD_COL = 16)
+scream: bool
 
+kpd:  char[LCD_COL] (LCD_COL = 16)
 
 ~~ Needed from PC ~~
 accelNeeded: byte (000)
