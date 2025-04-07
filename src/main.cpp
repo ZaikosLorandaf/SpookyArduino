@@ -220,7 +220,7 @@ void remapSendValue(int val, int max) {
   if (prevMappedVal != mappedVal) {
     prevMappedVal = mappedVal;
     vibrate(20);
-    /*control["pot"] = mappedVal;*/
+    toPC["pot"] = mappedVal;
   }
 }
 
