@@ -51,10 +51,10 @@ int joyState;
 #define LEFT    4
 
 /*~~~~ Buttons ~~~*/
-#define B_UP_PIN    31
-#define B_DOWN_PIN  32
-#define B_RIGHT_PIN 33
-#define B_LEFT_PIN  30
+#define B_UP_PIN    32
+#define B_DOWN_PIN  31
+#define B_RIGHT_PIN 30
+#define B_LEFT_PIN  33
 
 /*~~~~~ LEDs ~~~~~*/
 #define LED1 42
@@ -186,9 +186,9 @@ int getPosition() {
     return UP;
   else if (yVal < JOY_MIN_TRESH)
     return DOWN;
-  else if (xVal > JOY_MAX_TRESH)
-    return RIGHT;
   else if (xVal < JOY_MIN_TRESH)
+    return RIGHT;
+  else if (xVal > JOY_MAX_TRESH)
     return LEFT;
   else
     return J_CENTER;
