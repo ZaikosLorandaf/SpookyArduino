@@ -33,8 +33,6 @@ accelNeeded: byte (000)
 lcdMessage: char[16]
 */
 
-
-
 /*~~~ Vibrator ~~~*/
 #define VIB_PIN d7
 
@@ -69,8 +67,15 @@ int joyState;
 #define COLS 4
 
 /* Potentiometer */
-#define POT_INPUT A0
-#define MAX_POT_VAL 1010
+#define POT_INPUT A15
+#define MAX_POT_VAL 1005
+
+/*~~~~~ Muons ~~~~~*/
+#define MUONS A1
+#define MUON_TRESH 550
+#define MUON_TO_SCARE 30
+#define MIN_SCARE_TIME 50000
+int muonCount = 0;
 
 /*~~ BarGraph ~~~*/
 #define BARGRAPHE_SIZE 10
@@ -143,6 +148,8 @@ Timers timerLED3;
 Timers timerLED4;
 Timers timerLED5;
 Timers timerVib;
+Timers timerMuon;
+Timers timerJump;
 
 
 /*~~~~ Keypad ~~~*/
@@ -220,7 +227,7 @@ void remapSendValue(int val, int max) {
   mappedVal = map(val, 0, MAX_POT_VAL, 0, max);
   if (prevMappedVal != mappedVal) {
     prevMappedVal = mappedVal;
-    vibrate(20);
+    vibrate(30);
     toPC["pot"] = mappedVal;
   }
 }
@@ -294,7 +301,6 @@ void getKeypad() {
 
   if (!currentMessage && keys.keyStateChanged())
     messageInit();
-
   pressedKey = keys.getKey();
 
   switch (pressedKey) {
@@ -317,6 +323,8 @@ void getKeypad() {
       pressedKey = false;
       break;
     default:
+      if (MessageIndex >= LCD_COL)
+        break;
       keypadMessage[MessageIndex] = pressedKey;
       keypadMessage[MessageIndex + 1] = '\0';
       ++MessageIndex;
@@ -440,7 +448,6 @@ void turnOnLED(int led, int time) {
 }
 
 /*~~~~ Timers ~~~*/
-
 /* Checks LED timers and turns them off accordingly */
 void checktimer() {
   if (millis() > timerLED1.time && timerLED1.status) {
@@ -528,11 +535,19 @@ void getButtonState() {
   }
 }
 
+/*~~~~ Muons ~~~*/
+void muonDetected() {
+  muonCount++;
+  if (muonCount >= MUON_TO_SCARE && millis() >= timerMuon.time){
+    toPC["scream"] = true;
+    muonCount = 0;
+    timerMuon.time = millis() + MIN_SCARE_TIME;
+  }
+}
 
 void readMsg() {
   JsonDocument doc;
   JsonVariant parseMsg;
-
   DeserializationError error = deserializeJson(doc, Serial);
 
   if (error) {
@@ -545,10 +560,7 @@ void readMsg() {
   else
     accelNeeded = 0;
 
-  if (!doc["lcdMessage"].isNull())
-    lcd.write(doc["lcdMessage"].as<unsigned char>());
 }
-
 
 void setup(){
   lcd.begin(LCD_COL,LCD_ROW); //Sets the LCD's amount of columns and rows.
@@ -576,8 +588,13 @@ void setup(){
     pinMode(barPin[segment],OUTPUT);
     digitalWrite(barPin[segment],LOW);
   }
+  
+  /*~~~~~ Muons ~~~~*/
+  timerMuon.time = millis() + MIN_SCARE_TIME;
+  timerJump.time = millis();
 
   /*~~~~ Serial ~~~~*/
+  // Serial.begin(9600);
   Serial.begin(115200);
   toPC["init"] = 1;
   serializeJson(toPC, Serial);
@@ -609,9 +626,13 @@ void loop(){
 
   /*~~~~~~~~~~~~~ Joystick ~~~~~~~~~~~~~*/
   checkJoyState();
-
+  
+  /*~~~~~~~~~~~~~~ Muons ~~~~~~~~~~~~~~~*/
+  if (analogRead(MUONS) > MUON_TRESH) {
+    muonDetected();
+  }
+  
   /*~~~~~~~~~~~~~~~ Json ~~~~~~~~~~~~~~~*/
-
   if (Serial.available())
     readMsg();
 
